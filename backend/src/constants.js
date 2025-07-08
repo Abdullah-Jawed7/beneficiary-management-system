@@ -4,7 +4,12 @@ const defaultAvatar ={
 
 const userRoles = ['admin', 'receptionist', 'department']
 
+const departments = ["shelter assistance",'food distribution','education support','financial aid','medical aid']
+
+const DB_NAME = 'bms'
 export {
     defaultAvatar,
     userRoles,
+    DB_NAME,
+    departments,
 }

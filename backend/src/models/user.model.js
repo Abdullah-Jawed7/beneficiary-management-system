@@ -1,4 +1,8 @@
 import mongoose ,{Schema} from "mongoose";
+import bcrypt from 'bcrypt'
+import jwt  from "jsonwebtoken";
+import { departments, userRoles } from "../constants.js";
+
 
 const userSchema = new  Schema(
     {
@@ -22,9 +26,17 @@ const userSchema = new  Schema(
     },
     role:{
         type:String,
+        enum: userRoles,
         required:true,
         lowercase:true,
-        trim: true, 
+    },
+    department:{
+        type:String,
+        enum:departments,
+        lowercase:true,
+        required:function () {
+            return this.role === 'department'
+        }
     },
       avatar:{
         type: String, // cloudinary URL
