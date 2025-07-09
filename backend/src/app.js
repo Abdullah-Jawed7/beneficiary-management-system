@@ -13,6 +13,9 @@ app.use(cookieParser())
 
 // importing routes
 import userRouter from "./routes/user.route.js";
+import BeneficiaryRouter from "./routes/beneficiaries.route.js";
+
 
 app.use("/api/user",userRouter)
+app.use('/api/beneficiary' , BeneficiaryRouter)
 export {app}

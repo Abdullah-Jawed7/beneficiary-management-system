@@ -123,9 +123,11 @@ const loginUser = asyncHandler(async (req, res) => {
   //password check
   //access and refresh token
   //send cookie
-
-  const { email, identityNumber, password } = req.body;
-  console.log(email);
+  console.log(req)
+  console.log(req?.body)
+  // const { fullName, email, identityNumber, role , department } = req.body;
+  const { email , identityNumber , password } = await req.body;
+  console.log(req?.body);
 
   if (!identityNumber || !email) {
     throw new ApiError(400, "identityNumber or email is required");
@@ -145,7 +147,7 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Invalid user credentials");
   }
 
-  const accessToken = user.generateAccessToken();
+  const accessToken = await user.generateAccessToken();
 
   const loggedInUser = await User.findById(user._id).select("-password ");
 
@@ -170,10 +172,10 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
+  const { password, newPassword } = req.body;
 
   const user = await User.findById(req.user?._id);
-  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+  const isPasswordCorrect = await user.isPasswordCorrect(password);
 
   if (!isPasswordCorrect) {
     throw new ApiError(400, "Invalid old password");
@@ -194,9 +196,9 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
-  const { fullName, email } = req.body;
+  const { fullName, email , identityNumber} = req.body;
 
-  if (!fullName || !email) {
+  if (!fullName || !email || !identityNumber) {
     throw new ApiError(400, "All fields are required");
   }
 
@@ -206,6 +208,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
       $set: {
         fullName,
         email: email,
+        identityNumber
       },
     },
     { new: true }
@@ -247,7 +250,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 const getAllUsers = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, fullName, role, identityNumber } = req.query;
+  let { page = 1, limit = 10, fullName, role, identityNumber } = req.query;
   page = parseInt(page);
   limit = parseInt(limit);
 
@@ -256,7 +259,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
   }
 
   // 2. Build dynamic filter
-  const filters = {};
+  let filters = {};
 
   if (fullName) {
     filters.fullName = { $regex: new RegExp(fullName, "i") }; // case-insensitive partial
@@ -294,11 +297,21 @@ const getAllUsers = asyncHandler(async (req, res) => {
 });
 
 const getUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params._id);
+  const user = await User.findById(req?.params?.id);
+  console.log(user)
   return res
     .status(200)
     .json(new ApiResponse(200, user, "User fetched successfully"));
 });
+const deleteUser = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndDelete(req?.params?.id);
+  console.log(user)
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "User fetched successfully"));
+});
+
+
 
 export {
   registerUser,
@@ -309,4 +322,5 @@ export {
   updateUserAvatar,
   getAllUsers,
   getUser,
+  deleteUser,
 };
