@@ -17,5 +17,5 @@ import BeneficiaryRouter from "./routes/beneficiaries.route.js";
 
 
 app.use("/api/user",userRouter)
-app.use('/api/beneficiary' , BeneficiaryRouter)
+app.use('/api/app' , BeneficiaryRouter)
 export {app}

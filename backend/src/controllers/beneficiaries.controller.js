@@ -1,19 +1,35 @@
 import { asyncHandler } from "../utils/asynchandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { Beneficiaries } from "../models/beneficiaries.model.js"
-import { Token } from '../models/token.model.js'
+import { Beneficiaries } from "../models/beneficiaries.model.js";
+import { Token } from "../models/token.model.js";
+import { departments, status } from "../constants.js";
 
-const createUserAndGenerateToken = asyncHandler(async (req,res)=>{
-const {email , fullName, identityNumber , contactNumber , address , purpose , status} = req.body;
+const createUserAndGenerateToken = asyncHandler(async (req, res) => {
+  const {
+    email,
+    fullName,
+    identityNumber,
+    contactNumber,
+    address,
+    purpose,
+    status,
+  } = req.body;
 
   // Validating every field must be available
-  if (!fullName || !email || !identityNumber || !contactNumber || !purpose || !department) {
+  if (
+    !fullName ||
+    !email ||
+    !identityNumber ||
+    !contactNumber ||
+    !purpose ||
+    !department
+  ) {
     throw new ApiError(400, "All fields are required");
   }
   // Another way to validate all fields are having data :
   if (
-    [email , fullName, identityNumber , contactNumber ,purpose , department].some(
+    [email, fullName, identityNumber, contactNumber, purpose, department].some(
       (field) => field?.trim() === ""
     )
   ) {
@@ -21,125 +37,122 @@ const {email , fullName, identityNumber , contactNumber , address , purpose , st
     throw new ApiError(400, "All fields are required");
   }
 
- // checking is identityNumber or email taken
+  // checking is identityNumber or email taken
   const isBeneficiaryExisted = await Beneficiaries.findOne({
     $or: [{ identityNumber }, { email }],
   });
 
   let beneficiaryData;
   if (!isBeneficiaryExisted) {
-// registering beneficiary
+    // registering beneficiary
 
-  const beneficiaryDetail = {
-    email,
-    fullName,
-    identityNumber,
-    contactNumber,
-    address: address || '',
+    const beneficiaryDetail = {
+      email,
+      fullName,
+      identityNumber,
+      contactNumber,
+      address: address || "",
+    };
+
+    // create user
+    const beneficiary = await Beneficiaries.create(beneficiaryDetail);
+
+    // check is user created successfully
+    const isBeneficiaryCreated = await Beneficiaries.findById(beneficiary._id);
+
+    if (!isBeneficiaryCreated) {
+      throw new ApiError(
+        500,
+        "Something went wrong while registering beneficiary"
+      );
+    }
+
+    beneficiaryData = isBeneficiaryCreated;
   }
 
+  beneficiaryData = isBeneficiaryExisted;
+  const data = {
+    department,
+    purpose,
+    receptionist: req?.user?._id,
+    beneficiaries: beneficiaryData?._id,
+  };
   // create user
-  const beneficiary = await Beneficiaries.create(beneficiaryDetail);
+  const token = await Token.create(data);
 
   // check is user created successfully
-  const isBeneficiaryCreated = await Beneficiaries.findById(beneficiary._id);
+  const isTokenGenerated = await Token.findById(token._id)?.select(
+    "-receptionist -beneficiaries"
+  );
 
-  if (!isBeneficiaryCreated) {
-    throw new ApiError(500, "Something went wrong while registering beneficiary");
+  if (!isTokenGenerated) {
+    throw new ApiError(500, "Something went wrong while generating token");
   }
 
-beneficiaryData = isBeneficiaryCreated;
+  // sending response to frontend
+  const result = {
+    detail: beneficiaryData,
+    token: isTokenGenerated,
+  };
 
-  }
-
-
-  beneficiaryData = isBeneficiaryExisted
-    const data ={
-        department,
-        purpose,
-        receptionist: req?.user?._id,
-        beneficiaries:beneficiaryData?._id,
-    }
-    // create user
-      const token = await Token.create(data);
-    
-      // check is user created successfully
-      const isTokenGenerated = await Token.findById(token._id)?.select("-receptionist -beneficiaries");
-    
-      if (!isTokenGenerated) {
-        throw new ApiError(500, "Something went wrong while generating token");
-      }
-    
-      // sending response to frontend
-      const result = {
-        detail:beneficiaryData,
-        token:isTokenGenerated,
-        
-      }
-    
-      return res
-        .status(201)
-        .json(new ApiResponse(201, result, "Token Generating successfully!"));
-  
-
-
+  return res
+    .status(201)
+    .json(new ApiResponse(201, result, "Token Generating successfully!"));
 
   // sending response to frontend
 
-//   return res
-//     .status(201)
-//     .json(new ApiResponse(201, isUserCreated, "User registered successfully!"));
-
-})
+  //   return res
+  //     .status(201)
+  //     .json(new ApiResponse(201, isUserCreated, "User registered successfully!"));
+});
 
 // Getting All Beneficiaries
-const getAllBeneficiary = asyncHandler(async(req,res)=>{
-      let { page = 1, limit = 10, fullName,  identityNumber } = req.query;
-      page = parseInt(page);
-      limit = parseInt(limit);
-    
-      if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
-        throw new ApiError(400, "Page and limit must be positive integers.");
-      }
-    
-      // 2. Build dynamic filter
-      let filters = {};
-    
-      if (fullName) {
-        filters.fullName = { $regex: new RegExp(fullName, "i") }; // case-insensitive partial
-      }
-    
-      if (identityNumber) {
-        filters.identityNumber = { $regex: new RegExp(identityNumber, "i") };
-      }
-    
-      // 3. Fetch paginated, filtered users
-      const skip = (page - 1) * limit;
-    
-      const [users, totalUsers] = await Promise.all([
-        Beneficiaries.find(filters).skip(skip).limit(limit).lean(),
-        Beneficiaries.countDocuments(filters),
-      ]);
-    
-      const totalPages = Math.ceil(totalUsers / limit);
-      const result = {
-        currentPage: page,
-        totalPages,
-        usersPerPage: limit,
-        totalUsers,
-        users,
-      };
-    
-      // 4. Return response
-      res
-        .status(200)
-        .json(new ApiResponse(200, result, "users according to filters"));
-    
-})
+const getAllBeneficiary = asyncHandler(async (req, res) => {
+  let { page = 1, limit = 10, fullName, identityNumber } = req.query;
+  page = parseInt(page);
+  limit = parseInt(limit);
+
+  if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
+    throw new ApiError(400, "Page and limit must be positive integers.");
+  }
+
+  // 2. Build dynamic filter
+  let filters = {};
+
+  if (fullName) {
+    filters.fullName = { $regex: new RegExp(fullName, "i") }; // case-insensitive partial
+  }
+
+  if (identityNumber) {
+    filters.identityNumber = { $regex: new RegExp(identityNumber, "i") };
+  }
+
+  // 3. Fetch paginated, filtered users
+  const skip = (page - 1) * limit;
+
+  const [users, totalUsers] = await Promise.all([
+    Beneficiaries.find(filters).skip(skip).limit(limit).lean(),
+    Beneficiaries.countDocuments(filters),
+  ]);
+
+  const totalPages = Math.ceil(totalUsers / limit);
+  const result = {
+    currentPage: page,
+    totalPages,
+    usersPerPage: limit,
+    totalUsers,
+    users,
+  };
+
+  // 4. Return response
+  res
+    .status(200)
+    .json(new ApiResponse(200, result, "users according to filters"));
+});
 
 const getBeneficiary = asyncHandler(async (req, res) => {
   const user = await Beneficiaries.findById(req?.params?.id);
-  console.log(user)
+  console.log(user);
   return res
     .status(200)
     .json(new ApiResponse(200, user, "User fetched successfully"));
@@ -148,9 +161,9 @@ const getBeneficiary = asyncHandler(async (req, res) => {
 // update beneficiary
 
 const updateBeneficiary = asyncHandler(async (req, res) => {
-  const { fullName, email , identityNumber , contactNumber , address} = req.body;
+  const { fullName, email, identityNumber, contactNumber, address } = req.body;
 
-  if (!fullName || !email || !identityNumber || !contactNumber ) {
+  if (!fullName || !email || !identityNumber || !contactNumber) {
     throw new ApiError(400, "All fields are required");
   }
 
@@ -162,7 +175,7 @@ const updateBeneficiary = asyncHandler(async (req, res) => {
         email: email,
         identityNumber,
         contactNumber,
-        address: address || ""
+        address: address || "",
       },
     },
     { new: true }
@@ -175,61 +188,132 @@ const updateBeneficiary = asyncHandler(async (req, res) => {
 
 const deleteBeneficiary = asyncHandler(async (req, res) => {
   const user = await Beneficiaries.findByIdAndDelete(req?.params?.id);
-  console.log(user)
+  console.log(user);
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "User fetched successfully"));
+    .json(new ApiResponse(200, {}, "User Deleted successfully"));
 });
 
-const getAllTokens =asyncHandler(async (req, res)=>{
-     let { page = 1, limit = 10, department,  status } = req.query;
-      page = parseInt(page);
-      limit = parseInt(limit);
-    
-      if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
-        throw new ApiError(400, "Page and limit must be positive integers.");
-      }
-    
-      // 2. Build dynamic filter
-      let filters = {};
-    
-      if (department) {
-        filters.department = department
-      }
-      if (status) {
-        filters.status = status
-      }
-    
-      // 3. Fetch paginated, filtered users
-      const skip = (page - 1) * limit;
-    
-      const [users, totalUsers] = await Promise.all([
-        Token.find(filters).skip(skip).limit(limit).lean(),
-        Token.countDocuments(filters),
-      ]);
-    
-      const totalPages = Math.ceil(totalUsers / limit);
-      const result = {
-        currentPage: page,
-        totalPages,
-        usersPerPage: limit,
-        totalUsers,
-        users,
-      };
-    
-      // 4. Return response
-      res
-        .status(200)
-        .json(new ApiResponse(200, result, "Tokens according to filters"));
-    
+const getAllTokens = asyncHandler(async (req, res) => {
+  let { page = 1, limit = 10, department, status } = req.query;
+  page = parseInt(page);
+  limit = parseInt(limit);
 
-})
+  if (isNaN(page) || page < 1 || isNaN(limit) || limit < 1) {
+    throw new ApiError(400, "Page and limit must be positive integers.");
+  }
+
+  // 2. Build dynamic filter
+  let filters = {};
+
+  if (department) {
+    filters.department = department;
+  }
+  if (status) {
+    filters.status = status;
+  }
+
+  // 3. Fetch paginated, filtered users
+  const skip = (page - 1) * limit;
+
+  const [users, totalUsers] = await Promise.all([
+    Token.find(filters).skip(skip).limit(limit).lean(),
+    Token.countDocuments(filters),
+  ]);
+
+  const totalPages = Math.ceil(totalUsers / limit);
+  const result = {
+    currentPage: page,
+    totalPages,
+    usersPerPage: limit,
+    totalUsers,
+    users,
+  };
+
+  // 4. Return response
+  res
+    .status(200)
+    .json(new ApiResponse(200, result, "Tokens according to filters"));
+});
+// getToken
+const getToken = asyncHandler(async (req, res) => {
+  const user = await Token.findById(req?.params?.id);
+  console.log(user);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User fetched successfully"));
+});
+const getTokenByUserId = asyncHandler(async (req, res) => {
+  const user = await Token.findById({beneficiaries:req?.params?.id});
+  console.log(user);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User fetched successfully"));
+});
+const getTokenByReceptionistId = asyncHandler(async (req, res) => {
+  const user = await Token.findById({receptionist:req?.params?.id});
+  console.log(user);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User fetched successfully"));
+});
+// updateToken --->status , department ,purpose
+const updateToken = asyncHandler(async (req, res) => {
+  const { status, department, purpose } = req.body;
+
+  if (!status || !department || !purpose) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  const user = await Token.findByIdAndUpdate(
+    req?.params?.id,
+    {
+      $set: {
+        status,
+        department,
+        purpose,
+      },
+    },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details updated successfully"));
+});
+// deleteToken
+const deleteToken = asyncHandler(async (req, res) => {
+  const user = await Token.findByIdAndDelete(req?.params?.id);
+  console.log(user);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Token Deleted successfully"));
+});
+
+
+const getTokenStatus = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, status, "User fetched successfully"));
+});
+const getDepartments = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, departments, "User fetched successfully"));
+});
 
 export {
-    createUserAndGenerateToken,
-    getAllBeneficiary,
-    getBeneficiary,
-    updateBeneficiary,
-    deleteBeneficiary,
-    getAllTokens
-}
+  createUserAndGenerateToken,
+  getAllBeneficiary,
+  getBeneficiary,
+  updateBeneficiary,
+  deleteBeneficiary,
+  getAllTokens,
+  deleteToken,
+  getToken,
+  updateToken,
+  getTokenByUserId,
+  getTokenByReceptionistId,
+  getDepartments,
+  getTokenStatus,
+};
