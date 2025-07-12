@@ -3,7 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Beneficiaries } from "../models/beneficiaries.model.js";
 import { Token } from "../models/token.model.js";
-import { departments, status } from "../constants.js";
+import { departments, status, userRoles } from "../constants.js";
 
 const createUserAndGenerateToken = asyncHandler(async (req, res) => {
   const {
@@ -301,6 +301,11 @@ const getDepartments = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, departments, "User fetched successfully"));
 });
+const getRoles = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, userRoles, "User fetched successfully"));
+});
 
 export {
   createUserAndGenerateToken,
@@ -316,4 +321,5 @@ export {
   getTokenByReceptionistId,
   getDepartments,
   getTokenStatus,
+  getRoles,
 };

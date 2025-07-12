@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { createUserAndGenerateToken, deleteBeneficiary, deleteToken, getAllBeneficiary, getAllTokens, getBeneficiary, getDepartments, getToken, getTokenByUserId, getTokenStatus, updateBeneficiary, updateToken , getTokenByReceptionistId } from "../controllers/beneficiaries.controller.js";
+import { createUserAndGenerateToken, deleteBeneficiary, deleteToken, getAllBeneficiary, getAllTokens, getBeneficiary, getDepartments, getToken, getTokenByUserId, getTokenStatus, updateBeneficiary, updateToken , getTokenByReceptionistId, getRoles } from "../controllers/beneficiaries.controller.js";
+import { verifyAdmin } from "../middlewares/admin.middleware.js";
 
 
 const BeneficiaryRouter = Router();
@@ -22,6 +23,8 @@ BeneficiaryRouter.get('/get-recep-token/:id' , verifyJWT , getTokenByReceptionis
 // list of all available status for tokens
 BeneficiaryRouter.get('/get-status' , verifyJWT , getTokenStatus)
 BeneficiaryRouter.get('/get-departments' , verifyJWT , getDepartments)
+BeneficiaryRouter.get('/get-roles', verifyAdmin, getRoles)
+
 
 
 
