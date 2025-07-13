@@ -5,6 +5,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { defaultAvatar, userRoles } from "../constants.js";
 import { generatePassword } from "../utils/generatePassword.js";
+import { sendEmail } from "../utils/mail.js";
 
 const registerUser = asyncHandler(async (req, res) => {
   // Steps :
@@ -19,7 +20,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for user creation
   // only send necessary fields to frontend
 
-  const { fullName, email, identityNumber, role , department } = req.body;
+  const { fullName, email, identityNumber, role, department } = req.body;
   console.log(req.body);
   // Validating every field must be available
   if (!fullName || !email || !identityNumber || !role) {
@@ -38,7 +39,6 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!userRoles.some((option) => option === role?.toLowerCase()?.trim())) {
     throw new ApiError(400, "Provided Role is not valid");
   }
-
 
   // checking is identityNumber or email taken
   const isUserExisted = await User.findOne({
@@ -64,40 +64,31 @@ const registerUser = asyncHandler(async (req, res) => {
     avatar = await uploadOnCloudinary(avatarLocalPath);
   }
 
-  // generate random password for user because user only created by admin panel
-  let randomPass = generatePassword();
-  console.log(randomPass);
-  
-
   if (!randomPass) {
     throw new ApiError(503, "Password not generating!");
   }
 
-  // ------------------------------------------------------------------------------
-  // Todo: Send generated password to user email so user can access his account , place it after successfully user save in db
-  // ------------------------------------------------------------------------------
-
-  // alternative while not sending passwords to users email , save fixed password for every user
-  randomPass = process.env.TESTING_PASSWORD;
-
-
+  // generate random password for user because user only created by admin panel
+  let randomPass = generatePassword();
 
   let data = {
     fullName,
     avatar: avatar.url,
     role,
-    identityNumber, 
+    identityNumber,
     email,
     password: randomPass,
-  }
+  };
 
- // 
-   if (role === 'department') {
-      if (!department) {
-        return res.status(400).json({ error: 'departmentName is required for department staff.' });
-      }
-      data.department = department;
+  //
+  if (role === "department") {
+    if (!department) {
+      return res
+        .status(400)
+        .json({ error: "Department Name is required for department staff." });
     }
+    data.department = department;
+  }
 
   // create user
   const user = await User.create(data);
@@ -106,6 +97,11 @@ const registerUser = asyncHandler(async (req, res) => {
   const isUserCreated = await User.findById(user._id)?.select("-password ");
 
   if (!isUserCreated) {
+    await sendEmail(
+      email,
+      "you registered on BMS",
+      `A password been set for your account is ${randomPass} you can change this password by visiting /change-password route`
+    );
     throw new ApiError(500, "Something went wrong while registering user");
   }
 
@@ -123,10 +119,10 @@ const loginUser = asyncHandler(async (req, res) => {
   //password check
   //access and refresh token
   //send cookie
-  console.log(req)
-  console.log(req?.body)
+  console.log(req);
+  console.log(req?.body);
   // const { fullName, email, identityNumber, role , department } = req.body;
-  const { email , identityNumber , password } = await req.body;
+  const { email, identityNumber, password } = await req.body;
   console.log(req?.body);
 
   if (!identityNumber || !email) {
@@ -196,7 +192,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 });
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
-  const { fullName, email , identityNumber} = req.body;
+  const { fullName, email, identityNumber } = req.body;
 
   if (!fullName || !email || !identityNumber) {
     throw new ApiError(400, "All fields are required");
@@ -208,7 +204,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
       $set: {
         fullName,
         email: email,
-        identityNumber
+        identityNumber,
       },
     },
     { new: true }
@@ -298,20 +294,18 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
 const getUser = asyncHandler(async (req, res) => {
   const user = await User.findById(req?.params?.id);
-  console.log(user)
+  console.log(user);
   return res
     .status(200)
     .json(new ApiResponse(200, user, "User fetched successfully"));
 });
 const deleteUser = asyncHandler(async (req, res) => {
   const user = await User.findByIdAndDelete(req?.params?.id);
-  console.log(user)
+  console.log(user);
   return res
     .status(200)
     .json(new ApiResponse(200, {}, "User fetched successfully"));
 });
-
-
 
 export {
   registerUser,
