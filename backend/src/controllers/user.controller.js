@@ -64,12 +64,14 @@ const registerUser = asyncHandler(async (req, res) => {
     avatar = await uploadOnCloudinary(avatarLocalPath);
   }
 
-  if (!randomPass) {
+
+  // generate random password for user because user only created by admin panel
+  let randomPass =  generatePassword();
+
+    if (!randomPass) {
     throw new ApiError(503, "Password not generating!");
   }
 
-  // generate random password for user because user only created by admin panel
-  let randomPass = generatePassword();
 
   let data = {
     fullName,
@@ -97,15 +99,19 @@ const registerUser = asyncHandler(async (req, res) => {
   const isUserCreated = await User.findById(user._id)?.select("-password ");
 
   if (!isUserCreated) {
-    await sendEmail(
+    throw new ApiError(500, "Something went wrong while registering user");
+  }
+
+  // sending password to user thorough email
+  console.log("going to mail");
+  
+ await sendEmail(
       email,
       "you registered on BMS",
       `A password been set for your account is ${randomPass} you can change this password by visiting /change-password route`
     );
-    throw new ApiError(500, "Something went wrong while registering user");
-  }
-
   // sending response to frontend
+
 
   return res
     .status(201)
