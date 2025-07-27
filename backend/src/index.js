@@ -21,3 +21,19 @@ connectDB()
 .catch((error)=> { 
     console.log("DB Connection Failed !! ", error)}
 )
+
+//  ***Remaining to Implement***
+// cron job
+// rate lime
+// helmet
+// mongo sanitize for injection attacks
+// Time to live
+// bullMQ for assigning time taken task to my worker
+// redis cache
+// Dockers
+// AWS (EC2) deployment
+//  ***Remaining to learn***
+// payment integration
+// CICD pipeline 
+// sockets
+// PM2
